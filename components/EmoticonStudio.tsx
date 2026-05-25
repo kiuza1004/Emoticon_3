@@ -7,6 +7,10 @@ import { Uploader } from "./Uploader";
 import { EXPRESSION_PRESETS, STYLE_PRESETS, type StyleId } from "@/lib/presets";
 import { removeBackground } from "@/lib/bgRemove";
 import { composeEmoticon } from "@/lib/canvas";
+import { transformFace } from "@/lib/aiTransform";
+import { getCached, setCached, hashSource } from "@/lib/cache";
+
+const CACHE_VERSION = "v2";
 
 type EmoticonResult = { id: string; label: string; emoji: string; url: string };
 
@@ -21,10 +25,16 @@ export function EmoticonStudio() {
   const [selected, setSelected] = useState<Set<string>>(
     new Set(EXPRESSION_PRESETS.map((p) => p.id)),
   );
+  const [aiEnabled, setAiEnabled] = useState<Set<string>>(new Set());
   const [customBubble, setCustomBubble] = useState("");
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<string>("");
   const [results, setResults] = useState<EmoticonResult[]>([]);
+
+  const aiCapableIds = useMemo(
+    () => EXPRESSION_PRESETS.filter((p) => p.aiParams).map((p) => p.id),
+    [],
+  );
 
   const canGenerate = bgRemoved && selected.size > 0 && !generating;
   const selectedCount = selected.size;
@@ -68,23 +78,85 @@ export function EmoticonStudio() {
     });
   }
 
+  function toggleAi(id: string) {
+    setAiEnabled((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function setAllAi(on: boolean) {
+    setAiEnabled(on ? new Set(aiCapableIds) : new Set());
+  }
+
   async function regenerate() {
     if (!bgRemoved) return;
     setGenerating(true);
     setResults([]);
-    setProgress(`${selectedCount}개 이모티콘 합성 중...`);
+    const ids = [...selected];
+    const aiIds = ids.filter((id) => aiEnabled.has(id));
+    const total = ids.length;
+    setProgress(
+      aiIds.length > 0
+        ? `AI 0/${aiIds.length} · 합성 0/${total}`
+        : `${total}개 이모티콘 합성 중...`,
+    );
+
+    let sourceHash = "";
+    if (aiIds.length > 0) {
+      try {
+        sourceHash = await hashSource(bgRemoved);
+      } catch {
+        // 캐시 비활성화로 진행
+      }
+    }
+
     try {
-      const ids = [...selected];
       const out: EmoticonResult[] = [];
+      let aiDone = 0;
+      let composeDone = 0;
       for (const id of ids) {
         const preset = EXPRESSION_PRESETS.find((p) => p.id === id);
         if (!preset) continue;
+
+        let subject = bgRemoved;
+        if (aiEnabled.has(id) && preset.aiParams) {
+          const cacheKey = sourceHash
+            ? `${sourceHash}:${id}:${CACHE_VERSION}`
+            : "";
+          let transformed: string | null = null;
+          if (cacheKey) transformed = await getCached(cacheKey);
+          if (transformed) {
+            setProgress(
+              `AI ${aiDone + 1}/${aiIds.length} (캐시) · 합성 ${composeDone}/${total}`,
+            );
+          } else {
+            transformed = await transformFace(bgRemoved, preset.aiParams, (msg) =>
+              setProgress(
+                `AI ${aiDone + 1}/${aiIds.length} ${msg} · 합성 ${composeDone}/${total}`,
+              ),
+            );
+            if (transformed && cacheKey) {
+              await setCached(cacheKey, transformed);
+            }
+          }
+          if (transformed) subject = transformed;
+          aiDone++;
+        }
+
         const url = await composeEmoticon({
-          bgRemovedDataUrl: bgRemoved,
+          bgRemovedDataUrl: subject,
           expressionId: id,
           styleId,
           customBubble: customBubble.trim() || undefined,
         });
+        composeDone++;
+        setProgress(
+          aiIds.length > 0
+            ? `AI ${aiDone}/${aiIds.length} · 합성 ${composeDone}/${total}`
+            : `합성 ${composeDone}/${total}`,
+        );
         out.push({ id, label: preset.label, emoji: preset.emoji, url });
         setResults([...out]);
       }
@@ -179,26 +251,79 @@ export function EmoticonStudio() {
             </div>
 
             <div>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-                표정 선택{" "}
-                <span className="ml-1 text-xs normal-case text-slate-500">
-                  ({selectedCount}/{EXPRESSION_PRESETS.length})
-                </span>
-              </h2>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                  표정 선택{" "}
+                  <span className="ml-1 text-xs normal-case text-slate-500">
+                    ({selectedCount}/{EXPRESSION_PRESETS.length})
+                  </span>
+                </h2>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-slate-500">
+                    AI {aiEnabled.size}/{aiCapableIds.length}
+                  </span>
+                  <button
+                    onClick={() => setAllAi(true)}
+                    className="rounded-md border border-violet-500/60 px-2 py-1 text-violet-300 hover:bg-violet-500/20"
+                  >
+                    전체 AI ON
+                  </button>
+                  <button
+                    onClick={() => setAllAi(false)}
+                    className="rounded-md border border-slate-700 px-2 py-1 text-slate-400 hover:bg-slate-800"
+                  >
+                    OFF
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                 {EXPRESSION_PRESETS.map((p) => {
                   const on = selected.has(p.id);
+                  const aiCapable = !!p.aiParams;
+                  const aiOn = aiEnabled.has(p.id);
                   return (
                     <button
                       key={p.id}
                       onClick={() => toggle(p.id)}
                       className={
-                        "rounded-xl border px-2 py-3 text-center text-sm transition " +
+                        "relative rounded-xl border px-2 py-3 text-center text-sm transition " +
                         (on
                           ? "border-brand-500 bg-brand-500/20"
                           : "border-slate-700 text-slate-400 hover:border-slate-500")
                       }
                     >
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (aiCapable) toggleAi(p.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if ((e.key === "Enter" || e.key === " ") && aiCapable) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleAi(p.id);
+                          }
+                        }}
+                        title={
+                          aiCapable
+                            ? aiOn
+                              ? "AI 변형: ON"
+                              : "AI 변형: OFF (클릭해서 켜기)"
+                            : "이 표정은 AI 변형 미지원"
+                        }
+                        className={
+                          "absolute right-1 top-1 inline-flex h-5 items-center rounded-md px-1 text-[10px] font-bold transition " +
+                          (aiCapable
+                            ? aiOn
+                              ? "bg-violet-500 text-white"
+                              : "border border-slate-600 text-slate-400 hover:border-violet-400 hover:text-violet-300"
+                            : "border border-slate-800 text-slate-700")
+                        }
+                      >
+                        AI
+                      </span>
                       <div className="text-2xl">{p.emoji}</div>
                       <div className="mt-1 text-xs">{p.label}</div>
                     </button>

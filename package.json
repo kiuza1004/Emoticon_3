@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@gradio/client": "^2.2.0",
     "@huggingface/transformers": "^4.2.0",
     "jszip": "3.10.1",
     "next": "^16.2.6",
