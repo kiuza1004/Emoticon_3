@@ -25,7 +25,7 @@ async function loadModel(onProgress?: (msg: string) => void): Promise<Loaded> {
 
     const model = await AutoModel.from_pretrained(modelId, {
       device,
-      config: { model_type: "custom" },
+      config: { model_type: "custom" } as never,
       progress_callback: (p: { status?: string; progress?: number; file?: string }) => {
         if (p.status === "progress" && p.progress != null && p.file) {
           onProgress?.(`${p.file} ${Math.round(p.progress)}%`);
@@ -45,7 +45,7 @@ async function loadModel(onProgress?: (msg: string) => void): Promise<Loaded> {
         resample: 2,
         rescale_factor: 0.00392156862745098,
         size: { width: 1024, height: 1024 },
-      },
+      } as never,
     });
 
     return { model, processor, RawImage };
