@@ -6,14 +6,6 @@ export type Overlay = {
   rotation?: number;
 };
 
-// LivePortrait `/gpu_wrapped_execute_image` 는 두 슬라이더만 받는다:
-// 눈 벌림 비율(0 ≈ 감김 · 0.4 ≈ 보통 · 0.7+ ≈ 부릅) · 입 벌림 비율(0 ≈ 다묾 · 0.5+ ≈ 크게 벌림).
-// 그 외 smile/eyebrow/wink/eyeball/head-pose 는 이 endpoint 에서 노출되지 않음.
-export type AiParams = {
-  eyesOpenRatio?: number;
-  lipOpenRatio?: number;
-};
-
 export type ExpressionPreset = {
   id: string;
   label: string;
@@ -22,7 +14,6 @@ export type ExpressionPreset = {
   bgColor?: string;
   overlays: Overlay[];
   bubble?: string;
-  aiParams?: AiParams;
 };
 
 export const EXPRESSION_PRESETS: ExpressionPreset[] = [
@@ -38,7 +29,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "✨", x: 0.5, y: 0.08, scale: 0.16 },
     ],
     bubble: "와아아!",
-    aiParams: { eyesOpenRatio: 0.45, lipOpenRatio: 0.35 },
   },
   {
     id: "laugh",
@@ -51,7 +41,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "💦", x: 0.18, y: 0.3, scale: 0.14 },
     ],
     bubble: "ㅋㅋㅋㅋㅋ",
-    aiParams: { eyesOpenRatio: 0.18, lipOpenRatio: 0.6 },
   },
   {
     id: "cry",
@@ -65,7 +54,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "😭", x: 0.85, y: 0.85, scale: 0.26 },
     ],
     bubble: "흑흑...",
-    aiParams: { eyesOpenRatio: 0.1, lipOpenRatio: 0.25 },
   },
   {
     id: "angry",
@@ -79,7 +67,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "🔥", x: 0.5, y: 0.92, scale: 0.18 },
     ],
     bubble: "으아악!",
-    aiParams: { eyesOpenRatio: 0.6, lipOpenRatio: 0 },
   },
   {
     id: "wink",
@@ -105,7 +92,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "😲", x: 0.85, y: 0.85, scale: 0.22 },
     ],
     bubble: "헐!?",
-    aiParams: { eyesOpenRatio: 0.7, lipOpenRatio: 0.45 },
   },
   {
     id: "love",
@@ -171,7 +157,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "😴", x: 0.85, y: 0.85, scale: 0.22 },
     ],
     bubble: "쿨쿨...",
-    aiParams: { eyesOpenRatio: 0.05, lipOpenRatio: 0 },
   },
   {
     id: "panic",
@@ -185,7 +170,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "⚡", x: 0.82, y: 0.2, scale: 0.2 },
     ],
     bubble: "으아아악!",
-    aiParams: { eyesOpenRatio: 0.65, lipOpenRatio: 0.4 },
   },
   {
     id: "proud",
@@ -304,7 +288,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "✨", x: 0.85, y: 0.2, scale: 0.16 },
     ],
     bubble: "메~롱!",
-    aiParams: { eyesOpenRatio: 0.25, lipOpenRatio: 0.5 },
   },
   {
     id: "evil_smile",
@@ -331,7 +314,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "🤤", x: 0.85, y: 0.85, scale: 0.22 },
     ],
     bubble: "배고파...",
-    aiParams: { eyesOpenRatio: 0.34, lipOpenRatio: 0.2 },
   },
   {
     id: "pleading",
@@ -359,7 +341,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "⚡", x: 0.5, y: 0.08, scale: 0.22 },
     ],
     bubble: "가자!",
-    aiParams: { eyesOpenRatio: 0.55, lipOpenRatio: 0 },
   },
   {
     id: "exhausted",
@@ -373,7 +354,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "💤", x: 0.5, y: 0.08, scale: 0.18 },
     ],
     bubble: "힘들어...",
-    aiParams: { eyesOpenRatio: 0.12, lipOpenRatio: 0.1 },
   },
   {
     id: "sick",
@@ -400,7 +380,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "❓", x: 0.85, y: 0.2, scale: 0.18 },
     ],
     bubble: "지루해...",
-    aiParams: { eyesOpenRatio: 0.18, lipOpenRatio: 0 },
   },
   {
     id: "nervous",
@@ -426,7 +405,6 @@ export const EXPRESSION_PRESETS: ExpressionPreset[] = [
       { emoji: "😶", x: 0.85, y: 0.85, scale: 0.22 },
     ],
     bubble: "...",
-    aiParams: { eyesOpenRatio: 0.2, lipOpenRatio: 0 },
   },
 ];
 
