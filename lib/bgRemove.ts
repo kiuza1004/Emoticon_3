@@ -4,23 +4,33 @@ type Loaded = {
   model: unknown;
   processor: unknown;
   RawImage: typeof import("@huggingface/transformers").RawImage;
+  device: "webgpu" | "wasm";
 };
 
 let loadedPromise: Promise<Loaded> | null = null;
-let lastDevice: "webgpu" | "wasm" | null = null;
+let preferredDevice: "webgpu" | "wasm" | null = null;
 
-async function loadModel(onProgress?: (msg: string) => void): Promise<Loaded> {
+function detectDevice(): "webgpu" | "wasm" {
+  if (preferredDevice) return preferredDevice;
+  if (typeof navigator === "undefined") return "wasm";
+
+  const ua = navigator.userAgent || "";
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  if (isMobile) return "wasm";
+
+  return "gpu" in navigator ? "webgpu" : "wasm";
+}
+
+async function loadModel(onProgress?: BgRemoveProgress): Promise<Loaded> {
   if (loadedPromise) return loadedPromise;
+
+  const device = detectDevice();
 
   loadedPromise = (async () => {
     const { AutoModel, AutoProcessor, RawImage, env } = await import("@huggingface/transformers");
     env.allowLocalModels = false;
 
-    const device: "webgpu" | "wasm" =
-      typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "wasm";
-    lastDevice = device;
     onProgress?.(`모델 로딩 중 (${device.toUpperCase()})... 첫 실행은 ~45MB 다운로드`);
-
     const modelId = "briaai/RMBG-1.4";
 
     const model = await AutoModel.from_pretrained(modelId, {
@@ -48,19 +58,41 @@ async function loadModel(onProgress?: (msg: string) => void): Promise<Loaded> {
       } as never,
     });
 
-    return { model, processor, RawImage };
+    return { model, processor, RawImage, device };
   })();
 
   return loadedPromise;
 }
 
 export function getBgRemoveDevice(): "webgpu" | "wasm" | null {
-  return lastDevice;
+  return preferredDevice;
 }
 
 export type BgRemoveProgress = (msg: string) => void;
 
 export async function removeBackground(
+  imageDataUrl: string,
+  onProgress?: BgRemoveProgress,
+): Promise<string> {
+  try {
+    return await runOnce(imageDataUrl, onProgress);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const loaded = await loadedPromise?.catch(() => null);
+    const looksWebGPU =
+      /webgpu|wgpu|ortrun|compute pipeline|external instance|stage2/i.test(msg);
+
+    if (looksWebGPU && loaded?.device === "webgpu") {
+      onProgress?.("WebGPU 실패 → WASM으로 자동 재시도 중...");
+      loadedPromise = null;
+      preferredDevice = "wasm";
+      return await runOnce(imageDataUrl, onProgress);
+    }
+    throw err;
+  }
+}
+
+async function runOnce(
   imageDataUrl: string,
   onProgress?: BgRemoveProgress,
 ): Promise<string> {
