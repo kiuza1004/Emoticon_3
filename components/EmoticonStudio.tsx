@@ -26,10 +26,25 @@ export function EmoticonStudio() {
     new Set(EXPRESSION_PRESETS.map((p) => p.id)),
   );
   const [aiEnabled, setAiEnabled] = useState<Set<string>>(new Set());
+  const [hfToken, setHfToken] = useState<string>("");
   const [customBubble, setCustomBubble] = useState("");
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<string>("");
   const [results, setResults] = useState<EmoticonResult[]>([]);
+
+  useEffect(() => {
+    const stored = typeof window !== "undefined"
+      ? window.localStorage.getItem("hf_token")
+      : null;
+    if (stored) setHfToken(stored);
+  }, []);
+
+  function saveHfToken(value: string) {
+    setHfToken(value);
+    if (typeof window === "undefined") return;
+    if (value) window.localStorage.setItem("hf_token", value);
+    else window.localStorage.removeItem("hf_token");
+  }
 
   const aiCapableIds = useMemo(
     () => EXPRESSION_PRESETS.filter((p) => p.aiParams).map((p) => p.id),
@@ -132,11 +147,13 @@ export function EmoticonStudio() {
               `AI ${aiDone + 1}/${aiIds.length} (캐시) · 합성 ${composeDone}/${total}`,
             );
           } else {
-            transformed = await transformFace(bgRemoved, preset.aiParams, (msg) =>
-              setProgress(
-                `AI ${aiDone + 1}/${aiIds.length} ${msg} · 합성 ${composeDone}/${total}`,
-              ),
-            );
+            transformed = await transformFace(bgRemoved, preset.aiParams, {
+              hfToken: hfToken || undefined,
+              onProgress: (msg) =>
+                setProgress(
+                  `AI ${aiDone + 1}/${aiIds.length} ${msg} · 합성 ${composeDone}/${total}`,
+                ),
+            });
             if (transformed && cacheKey) {
               await setCached(cacheKey, transformed);
             }
@@ -276,6 +293,48 @@ export function EmoticonStudio() {
                   </button>
                 </div>
               </div>
+              {aiEnabled.size > 0 && (
+                <div className="mb-3 rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 text-xs">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="font-semibold text-violet-200">HF 토큰</span>
+                    <a
+                      href="https://huggingface.co/settings/tokens"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-violet-300 underline hover:text-violet-200"
+                    >
+                      발급 페이지 열기 ↗
+                    </a>
+                  </div>
+                  <p className="mb-2 text-slate-400">
+                    LivePortrait Space는 무료 호출이 정책으로 차단됩니다. HF 계정에서{" "}
+                    <code className="rounded bg-slate-800 px-1">Read</code> 권한 토큰을 발급해 아래에 붙여넣으세요.
+                    토큰은 이 브라우저 localStorage 에만 저장되며 서버로 전송되지 않습니다.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={hfToken}
+                      onChange={(e) => saveHfToken(e.target.value.trim())}
+                      placeholder="hf_..."
+                      className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 font-mono text-slate-200 outline-none focus:border-violet-400"
+                    />
+                    {hfToken && (
+                      <button
+                        onClick={() => saveHfToken("")}
+                        className="rounded-md border border-slate-700 px-2 py-1 text-slate-400 hover:bg-slate-800"
+                      >
+                        지우기
+                      </button>
+                    )}
+                  </div>
+                  {!hfToken && (
+                    <p className="mt-1 text-amber-300">
+                      ⚠ 토큰 없이는 AI 변환이 호출 즉시 실패합니다.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                 {EXPRESSION_PRESETS.map((p) => {
                   const on = selected.has(p.id);

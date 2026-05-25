@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EXPRESSION_PRESETS } from "@/lib/presets";
 import { transformFace } from "@/lib/aiTransform";
 
@@ -10,6 +10,22 @@ export default function TestAiPage() {
   const [expressionId, setExpressionId] = useState("joy");
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [hfToken, setHfToken] = useState<string>("");
+
+  useEffect(() => {
+    const stored =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("hf_token")
+        : null;
+    if (stored) setHfToken(stored);
+  }, []);
+
+  function saveHfToken(value: string) {
+    setHfToken(value);
+    if (typeof window === "undefined") return;
+    if (value) window.localStorage.setItem("hf_token", value);
+    else window.localStorage.removeItem("hf_token");
+  }
 
   const aiPresets = EXPRESSION_PRESETS.filter((p) => p.aiParams);
 
@@ -41,7 +57,10 @@ export default function TestAiPage() {
     pushLog(`전송: ${preset.label} ${JSON.stringify(preset.aiParams)}`);
     const t0 = performance.now();
     try {
-      const result = await transformFace(src, preset.aiParams, pushLog);
+      const result = await transformFace(src, preset.aiParams, {
+        hfToken: hfToken || undefined,
+        onProgress: pushLog,
+      });
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       if (result) {
         setOut(result);
@@ -177,6 +196,30 @@ export default function TestAiPage() {
       <p className="text-sm text-neutral-500">
         브라우저에서 HF Space(KwaiVGI/LivePortrait)를 직접 호출합니다. DevTools Network/Console을 함께 확인하세요.
       </p>
+
+      <div className="rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 text-sm">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="font-semibold">HF 토큰</span>
+          <a
+            href="https://huggingface.co/settings/tokens"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs underline"
+          >
+            발급 페이지 ↗
+          </a>
+        </div>
+        <input
+          type="password"
+          value={hfToken}
+          onChange={(e) => saveHfToken(e.target.value.trim())}
+          placeholder="hf_..."
+          className="w-full rounded border border-neutral-300 px-2 py-1 font-mono text-xs"
+        />
+        <p className="mt-1 text-xs text-neutral-500">
+          localStorage 에만 저장. Authorization 헤더로 프록시를 거쳐 HF Space 까지 전달됩니다.
+        </p>
+      </div>
 
       <div className="space-y-2">
         <input type="file" accept="image/*" onChange={onFile} />

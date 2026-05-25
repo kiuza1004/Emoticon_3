@@ -43,7 +43,7 @@ This file wraps Transformers.js v3 and is the most error-prone surface in the re
 
 Optional second pass that runs **before** `composeEmoticon()`. When the user clicks the "AI" badge on a preset card, `transformFace(bgRemoved, preset.aiParams)` calls the public `KlingTeam/LivePortrait` Space's `/gpu_wrapped_execute_image` endpoint via `@gradio/client`. The Space returns a pixel-edited face which becomes the new `subject` passed to `composeEmoticon()` — Canvas decoration is unchanged.
 
-Five non-obvious things:
+Six non-obvious things:
 
 1. **Only two sliders are actually exposed.** Despite the LivePortrait UI showing smile/wink/eyebrow/eyeball/head-pose sliders, the public `/gpu_wrapped_execute_image` endpoint only takes four positional params: `param_0` = target eyes-open ratio (`0` ≈ closed · `0.34` ≈ neutral · `0.7+` ≈ wide), `param_1` = target lip-open ratio (`0` ≈ closed · `0.5+` ≈ wide open), `param_2` = source image, `param_3` = do crop bool. The richer sliders are bound to unnamed `gr.Slider.change` events that `@gradio/client` cannot call. `AiParams` is therefore `{ eyesOpenRatio?, lipOpenRatio? }` — don't reintroduce smile/wink/eyebrow fields. Run `/test-ai` → "CORS 진단" to re-confirm the signature if anything looks off.
 
@@ -51,9 +51,11 @@ Five non-obvious things:
 
 3. **`transformFace()` returns `null` on failure, never throws.** Callers (the regenerate loop in `EmoticonStudio.tsx`) fall back to the bg-removed original on null. Cold-start, queue wait, CORS, Space removal must all degrade gracefully.
 
-4. **External Space dependency.** `KlingTeam/LivePortrait` is third-party and can be removed, rate-limited, or change its API at any time. Cold-start is 60–90s. The proxy only needs to forward; it does no caching.
+4. **HF 토큰이 필수.** The `KlingTeam/LivePortrait` Space requests a 240s GPU duration per call, which exceeds the ZeroGPU anonymous limit and returns `'The requested GPU duration (240s) is larger than the maximum allowed'`. The user must paste a read-scope HF token in the UI; the token is kept in `localStorage` only, sent as `Authorization: Bearer ...` (in `Client.connect({ token })`), and forwarded by the proxy via the `authorization` entry in `SAFE_REQ_HEADERS`. Don't reintroduce anonymous calls — they fail instantly.
 
-5. **Result cache.** Outputs are cached in IndexedDB keyed by `${sha256(source).slice(0,16)}:${expressionId}:${CACHE_VERSION}` (`lib/cache.ts`); bump `CACHE_VERSION` in `EmoticonStudio.tsx` whenever `AiParams` defaults change.
+5. **External Space dependency.** `KlingTeam/LivePortrait` is third-party and can be removed, rate-limited, or change its API at any time. Cold-start is 60–90s. The proxy only needs to forward; it does no caching.
+
+6. **Result cache.** Outputs are cached in IndexedDB keyed by `${sha256(source).slice(0,16)}:${expressionId}:${CACHE_VERSION}` (`lib/cache.ts`); bump `CACHE_VERSION` in `EmoticonStudio.tsx` whenever `AiParams` defaults change.
 
 `/test-ai` (`app/test-ai/page.tsx`) is the standalone CORS/end-to-end probe with raw fetch, server-side fetch (`/api/probe`), Gradio connect, and `view_api()` signature dump — keep it lean and stable; it's the first place to debug Space issues.
 

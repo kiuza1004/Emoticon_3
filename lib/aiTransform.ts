@@ -91,11 +91,17 @@ async function urlToDataUrl(url: string): Promise<string | null> {
   return blobToDataUrl(await res.blob());
 }
 
+export type TransformOptions = {
+  hfToken?: string;
+  onProgress?: TransformProgress;
+};
+
 export async function transformFace(
   sourceDataUrl: string,
   aiParams: AiParams,
-  onProgress?: TransformProgress,
+  options: TransformOptions = {},
 ): Promise<string | null> {
+  const { hfToken, onProgress } = options;
   let sourceBlob: Blob;
   try {
     sourceBlob = await dataUrlToBlob(sourceDataUrl);
@@ -104,11 +110,20 @@ export async function transformFace(
     return null;
   }
 
+  if (!hfToken) {
+    onProgress?.(
+      "HF 토큰이 필요합니다. 메인 페이지의 'HF 토큰' 입력란에 hf_... 토큰을 넣어주세요.",
+    );
+    return null;
+  }
+
   try {
     const { Client } = await import("@gradio/client");
     onProgress?.("LivePortrait 연결 중...");
     const client = await withTimeout(
-      Client.connect(spaceUrl()),
+      Client.connect(spaceUrl(), {
+        token: hfToken as `hf_${string}`,
+      }),
       TIMEOUT_MS,
       "connect",
     );

@@ -4,7 +4,12 @@ const TARGETS: Record<string, string> = {
   liveportrait: "https://klingteam-liveportrait.hf.space",
 };
 
-const SAFE_REQ_HEADERS = ["content-type", "accept", "x-gradio-event"];
+const SAFE_REQ_HEADERS = [
+  "content-type",
+  "accept",
+  "x-gradio-event",
+  "authorization",
+];
 const STRIP_RES_HEADERS = new Set([
   "content-encoding",
   "content-length",
