@@ -237,7 +237,7 @@ export default function TestAiPage() {
 
       <div>
         <div className="text-sm font-medium mb-1">로그</div>
-        <pre className="text-xs bg-neutral-100 p-3 rounded max-h-60 overflow-auto whitespace-pre-wrap">
+        <pre className="text-xs bg-neutral-900 text-emerald-200 border border-neutral-700 p-3 rounded max-h-80 overflow-auto whitespace-pre-wrap font-mono">
           {log.length ? log.join("\n") : "(empty)"}
         </pre>
       </div>
