@@ -55,6 +55,24 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   });
 }
 
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const o = e as any;
+    if (typeof o.message === "string" && o.message) return o.message;
+    if (typeof o.error === "string" && o.error) return o.error;
+    if (typeof o.detail === "string" && o.detail) return o.detail;
+    try {
+      return JSON.stringify(o);
+    } catch {
+      return String(o);
+    }
+  }
+  return String(e);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function extractImageUrl(result: any): Promise<string | null> {
   const data = result?.data;
@@ -108,16 +126,26 @@ export async function transformFace(
       "predict",
     );
 
+    if (typeof window !== "undefined") {
+      // 응답 형식 디버깅 — DevTools 에서 window.__lpLast 로 확인 가능
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__lpLast = result;
+    }
+
     const outUrl = await extractImageUrl(result);
     if (!outUrl) {
-      onProgress?.("LivePortrait: 빈 응답");
+      onProgress?.(
+        `LivePortrait: 응답 추출 실패. raw=${JSON.stringify(result).slice(0, 200)}`,
+      );
       return null;
     }
     return urlToDataUrl(outUrl);
   } catch (e) {
-    onProgress?.(
-      `LivePortrait 실패: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line no-console
+      console.error("[LivePortrait predict error]", e);
+    }
+    onProgress?.(`LivePortrait 실패: ${errMsg(e)}`);
     return null;
   }
 }
